@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truco Matemático Online</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.4), 0 2px 6px -2px rgba(0, 0, 0, 0.2);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Pulse animation for current player's turn */
+        @keyframes turnPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+        }
+
+        .turn-active {
+            animation: turnPulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between select-none overflow-x-hidden w-full">
+
+    <!-- Top Header / Bar -->
+    <header class="w-full bg-slate-900/90 border-b border-slate-800 p-3 sm:p-4 sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <span class="text-2xl sm:text-3xl">🎴</span>
+                <div>
+                    <h1 class="font-extrabold text-base sm:text-lg leading-tight bg-gradient-to-r from-amber-400 to-amber-200 bg-clip-text text-transparent">
+                        TRUCO MATEMÁTICO
+                    </h1>
+                    <span id="game-mode-badge" class="text-[10px] sm:text-xs text-slate-400 font-semibold uppercase">Modo: Vs BOT</span>
+                </div>
+            </div>
+
+            <!-- Online Room Info Header -->
+            <div id="room-code-display" class="hidden flex items-center gap-2 bg-emerald-950/80 border border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                <span class="text-xs text-emerald-300 font-bold">SALA:</span>
+                <span id="current-room-code" class="font-mono text-emerald-400 font-black text-sm tracking-widest">======</span>
+                <button onclick="window.copyRoomLink(event)" class="ml-1 text-xs bg-emerald-800 hover:bg-emerald-700 text-emerald-100 px-2.5 py-1 rounded-lg transition font-bold flex items-center gap-1">
+                    🔗 Copiar Link Direto
+                </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="document.getElementById('instructions-modal')?.classList.remove('hidden')" class="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs sm:text-sm px-3 py-2 rounded-xl transition border border-slate-700 flex items-center gap-1.5">
+                    <span>📜</span> <span class="hidden sm:inline">Regras &</span> Instruções
+                </button>
+                <button onclick="document.getElementById('multiplayer-modal')?.classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm px-3 py-2 rounded-xl transition shadow-lg flex items-center gap-1.5">
+                    <span>🌐</span> <span class="hidden sm:inline">Jogar</span> Online
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Board Area -->
+    <main class="max-w-4xl w-full mx-auto p-2 sm:p-4 flex-1 flex flex-col justify-between">
+
+        <!-- Score Board -->
+        <div class="glass-panel p-3 sm:p-4 rounded-2xl flex items-center justify-between mb-2">
+            <div id="user-score-box" class="flex flex-col items-center flex-1">
+                <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider" id="user-name-label">Você</span>
+                <span id="user-score" class="text-2xl sm:text-3xl font-black text-amber-400">0</span>
+            </div>
+            
+            <div class="flex flex-col items-center px-4 border-x border-slate-800">
+                <span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Vale</span>
+                <span id="truco-value" class="text-xl sm:text-2xl font-black text-emerald-400">1</span>
+                <span class="text-[10px] text-slate-400">Ponto(s)</span>
+            </div>
+
+            <div id="opp-score-box" class="flex flex-col items-center flex-1">
+                <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider" id="opp-name-label">Oponente</span>
+                <span id="opp-score" class="text-2xl sm:text-3xl font-black text-rose-400">0</span>
+            </div>
+        </div>
+
+        <!-- Notification Banner -->
+        <div id="status-banner" class="text-center py-2 px-4 bg-slate-900/60 border border-slate-800 rounded-xl mb-3 text-xs sm:text-sm text-slate-300 font-semibold min-h-[36px] flex items-center justify-center">
+            Aguardando início do jogo...
+        </div>
+
+        <!-- Truco Control Action Buttons -->
+        <div class="flex justify-center gap-3 my-2">
+            <button id="btn-truco" onclick="window.handleTrucoClick()" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm sm:text-base px-6 py-2.5 rounded-xl shadow-lg transition transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:pointer-events-none">
+                🔥 TRUCO!
+            </button>
+        </div>
+
+        <!-- Played Cards & Vira Display Zone -->
+        <div class="grid grid-cols-3 gap-2 sm:gap-4 my-4 items-center justify-items-center">
+            <div class="flex flex-col items-center gap-1">
+                <span class="text-[11px] text-slate-400 font-bold uppercase">Sua Jogada</span>
+                <div id="user-played-slot" class="w-20 h-32 sm:w-24 sm:h-36 border-2 border-dashed border-slate-800 rounded-2xl flex items-center justify-center"></div>
+            </div>
+
+            <div class="flex flex-col items-center gap-1">
+                <span class="text-[11px] text-amber-400 font-bold uppercase">VIRA</span>
+                <div id="vira-card-container" class="w-20 h-32 sm:w-24 sm:h-36 border-2 border-amber-500/50 rounded-2xl flex items-center justify-center bg-slate-900/50"></div>
+            </div>
+
+            <div class="flex flex-col items-center gap-1">
+                <span class="text-[11px] text-slate-400 font-bold uppercase">Oponente</span>
+                <div id="bot-played-slot" class="w-20 h-32 sm:w-24 sm:h-36 border-2 border-dashed border-slate-800 rounded-2xl flex items-center justify-center"></div>
+            </div>
+        </div>
+
+        <!-- Player Hand -->
+        <div class="flex flex-col items-center gap-2 mt-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Sua Mão</span>
+            <div id="user-hand" class="flex justify-center gap-2 sm:gap-4 min-h-[144px]">
+                <!-- Cartas do jogador serão renderizadas via JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Multiplayer / Amigo -->
+    <div id="multiplayer-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl relative">
+            <button onclick="document.getElementById('multiplayer-modal')?.classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold">
+                ✕
+            </button>
+            <h2 class="text-xl font-black text-amber-400 mb-1 flex items-center gap-2">
+                <span>🌐</span> Jogar com Amigo (Online)
+            </h2>
+            <p class="text-xs text-slate-400 mb-6">Crie uma sala nova para mandar o link para o seu amigo ou digite o código de uma sala aberta.</p>
+
+            <!-- Opção 1: Criar Sala -->
+            <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 mb-4">
+                <h3 class="text-sm font-bold text-slate-200 mb-2">Opção 1: Criar uma Nova Sala</h3>
+                <button id="btn-create-room" onclick="window.createOnlineRoom()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition text-sm shadow">
+                    ➕ Criar Nova Sala Online
+                </button>
+            </div>
+
+            <!-- Opção 2: Entrar na Sala -->
+            <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
+                <h3 class="text-sm font-bold text-slate-200 mb-2">Opção 2: Entrar em Sala Existente</h3>
+                <div class="flex gap-2">
+                    <div class="relative w-full">
+                        <input id="room-code-input" type="text" placeholder="CÓDIGO (ex: 26CEBT)" class="uppercase bg-slate-950 border border-slate-700 rounded-xl pl-3 pr-16 py-2 text-sm text-amber-300 font-mono font-bold w-full focus:outline-none focus:border-amber-400">
+                        <button onclick="window.pasteRoomCode()" class="absolute right-1.5 top-1/2 -translate-y-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold px-2 py-1 rounded-lg transition border border-slate-700 flex items-center gap-1">
+                            📋 Colar
+                        </button>
+                    </div>
+                    <button id="btn-join-room" onclick="window.joinOnlineRoom()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-sm transition shrink-0">
+                        Entrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Regras e Instruções -->
+    <div id="instructions-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-amber-500/40 w-full max-w-2xl rounded-2xl p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="document.getElementById('instructions-modal')?.classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold">
+                ✕
+            </button>
+            <h2 class="text-2xl font-black text-amber-400 mb-1 flex items-center gap-2">
+                <span>📜</span> Regras do Truco Matemático
+            </h2>
+            <p class="text-xs text-slate-400 mb-5">Aprenda a pontuação das expressões matemáticas e a hierarquia dos naipes operacionais.</p>
+
+            <div class="space-y-4 text-xs sm:text-sm text-slate-300">
+                <!-- Seção 1: Valor das Expressões -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-amber-300 mb-2 text-sm flex items-center gap-1.5">
+                        <span>🔢</span> 1. Valor das Cartas (Do Menor para o Maior)
+                    </h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center font-mono font-bold">
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">4</span> 2²-0</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">5</span> √25</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">6</span> 3!</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">7</span> 2³-1</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">10</span> 5x2</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">11 (J)</span> 11+0</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">12 (Q)</span> √144</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">1 (Ás)</span> 10⁰</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">2</span> √4</div>
+                        <div class="bg-slate-950 p-2 rounded-lg border border-slate-800"><span class="text-amber-400 block">3</span> log₁₀1000</div>
+                    </div>
+                </div>
+
+                <!-- Seção 2: Naipes Operacionais e Manilhas -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/50">
+                    <h3 class="font-bold text-amber-300 mb-2 text-sm flex items-center gap-1.5">
+                        <span>⚡</span> 2. Manilhas e Naipes Operacionais
+                    </h3>
+                    <p class="text-xs text-slate-400 mb-2">A **Manilha** é o valor imediatamente superior à carta virada no centro. Em caso de empate na carta, os naipes operacionais desempatam na seguinte ordem:</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-bold">
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-blue-500/40 text-blue-400">
+                            <span class="text-lg block">x (Paus)</span>
+                            <span class="text-[10px] text-slate-400">1ª Maior Manilha</span>
+                        </div>
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-rose-500/40 text-rose-400">
+                            <span class="text-lg block">+ (Copas)</span>
+                            <span class="text-[10px] text-slate-400">2ª Maior Manilha</span>
+                        </div>
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-purple-500/40 text-purple-400">
+                            <span class="text-lg block">÷ (Espadas)</span>
+                            <span class="text-[10px] text-slate-400">3ª Maior Manilha</span>
+                        </div>
+                        <div class="bg-slate-950 p-2.5 rounded-lg border border-amber-500/40 text-amber-400">
+                            <span class="text-lg block">- (Ouros)</span>
+                            <span class="text-[10px] text-slate-400">4ª Maior Manilha</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seção 3: Coringa Chi-Quadrado -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-amber-500/30 flex items-start gap-3">
+                    <span class="text-3xl text-amber-400">χ²</span>
+                    <div>
+                        <h4 class="font-bold text-amber-300">Carta Coringa (Chi-Quadrado)</h4>
+                        <p class="text-xs text-slate-300">A carta $\chi^2$ supera todas as cartas normais do jogo, mas é **derrotada por qualquer manilha** da rodada!</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5 text-center">
+                <button onclick="document.getElementById('instructions-modal')?.classList.add('hidden')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-2.5 rounded-xl text-sm transition">
+                    Entendi! Voltar ao Jogo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Resposta do Truco -->
+    <div id="truco-respond-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-amber-500/50 w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl">
+            <span class="text-4xl block mb-2">🔥</span>
+            <h3 id="truco-modal-title" class="text-xl font-black text-amber-400 mb-2">PEDIRAM TRUCO!</h3>
+            <p id="truco-modal-desc" class="text-sm text-slate-300 mb-6">O oponente aumentou a aposta!</p>
+
+            <div class="flex flex-col gap-2">
+                <button onclick="window.respondTruco('accept')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition text-sm">
+                    ✅ Aceitar Desafio
+                </button>
+                <button onclick="window.respondTruco('reject')" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl transition text-sm">
+                    🏳️ Correr (Fugir)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Principal do Jogo -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "demo-key",
+            authDomain: "demo.firebaseapp.com",
+            projectId: "demo-project",
+            storageBucket: "demo.appspot.com",
+            messagingSenderId: "000000000",
+            appId: "1:000000000:web:000000000"
+        };
+
+        let app = null, auth = null, db = null;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch(e) {
+            console.warn("Modo local estático ativado:", e);
+        }
+
+        let isOnlineMode = false;
+        let onlineRoomId = null;
+        let playerRole = 'p1';
+
+        const SUITS = [
+            { name: 'Paus', symbol: 'x', color: 'text-blue-400', border: 'border-blue-500', power: 4 },
+            { name: 'Copas', symbol: '+', color: 'text-rose-500', border: 'border-rose-500', power: 3 },
+            { name: 'Espadas', symbol: '÷', color: 'text-purple-400', border: 'border-purple-500', power: 2 },
+            { name: 'Ouros', symbol: '-', color: 'text-amber-400', border: 'border-amber-500', power: 1 }
+        ];
+
+        const CARDS_DATA = [
+            { rank: 4, expr: '2²-0' },
+            { rank: 5, expr: '√25' },
+            { rank: 6, expr: '3!' },
+            { rank: 7, expr: '2³-1' },
+            { rank: 10, expr: '5x2' },
+            { rank: 11, expr: '11+0' },
+            { rank: 12, expr: '√144' },
+            { rank: 1, expr: '10⁰' },
+            { rank: 2, expr: '√4' },
+            { rank: 3, expr: 'log₁₀1000' }
+        ];
+
+        let gameState = {
+            userHand: [],
+            oppHand: [],
+            viraCard: null,
+            userPlayed: null,
+            oppPlayed: null,
+            userScore: 0,
+            oppScore: 0,
+            trucoValue: 1,
+            currentTurn: 'user',
+            roundWins: { user: 0, opp: 0 }
+        };
+
+        function generateDeck() {
+            const deck = [];
+            let id = 1;
+            SUITS.forEach(suit => {
+                CARDS_DATA.forEach(cardData => {
+                    deck.push({
+                        id: id++,
+                        rank: cardData.rank,
+                        expr: cardData.expr,
+                        suitSymbol: suit.symbol,
+                        suitColor: suit.color,
+                        suitBorder: suit.border,
+                        suitPower: suit.power,
+                        basePower: cardData.rank,
+                        isJoker: false
+                    });
+                });
+            });
+            deck.push({
+                id: 999,
+                rank: 99,
+                expr: 'JOKER',
+                suitSymbol: 'χ²',
+                suitColor: 'text-amber-300',
+                suitBorder: 'border-amber-400',
+                suitPower: 99,
+                basePower: 99,
+                isJoker: true
+            });
+            return deck.sort(() => Math.random() - 0.5);
+        }
+
+        function calculateManilhaPower(vira) {
+            if (!vira) return -1;
+            const rankOrder = [4, 5, 6, 7, 10, 11, 12, 1, 2, 3];
+            const idx = rankOrder.indexOf(vira.rank);
+            if (idx === -1) return -1;
+            return rankOrder[(idx + 1) % rankOrder.length];
+        }
+
+        function getCardStrength(card, vira) {
+            if (!card) return 0;
+            const manilhaPower = calculateManilhaPower(vira);
+            if (card.basePower === manilhaPower) return 100 + card.suitPower;
+            if (card.isJoker) return 90;
+            return card.basePower;
+        }
+
+        function renderCardHTML(card, isHidden = false, onClickHandler = '') {
+            if (!card) return '<div class="w-20 h-32 sm:w-24 sm:h-36 border-2 border-dashed border-slate-800 rounded-2xl flex items-center justify-center"></div>';
+            
+            if (isHidden) {
+                return `
+                    <div class="w-20 h-32 sm:w-24 sm:h-36 bg-gradient-to-br from-indigo-950 to-slate-900 border-2 border-indigo-500/40 rounded-2xl card-shadow flex items-center justify-center">
+                        <span class="text-3xl text-indigo-400">🎴</span>
+                    </div>
+                `;
+            }
+
+            const centerSymbol = card.isJoker ? 'χ²' : card.suitSymbol;
+            const cornerLabel = card.isJoker ? 'JOKER' : card.expr;
+
+            return `
+                <div onclick="${onClickHandler}" class="w-20 h-32 sm:w-24 sm:h-36 bg-slate-900 border-2 border-slate-700 rounded-2xl p-1.5 relative flex flex-col justify-between cursor-pointer hover:border-amber-400 hover:-translate-y-2 transition-all duration-200 card-shadow select-none overflow-hidden">
+                    <div class="absolute top-1.5 left-2 flex flex-col items-start leading-none ${card.suitColor} z-10 pointer-events-none">
+                        <span class="text-[10px] sm:text-[11px] font-mono font-black tracking-tighter">${cornerLabel}</span>
+                        <span class="text-[12px] sm:text-[14px] font-bold leading-none mt-0.5">${card.suitSymbol}</span>
+                    </div>
+
+                    <div class="absolute inset-0 flex items-center justify-center ${card.suitColor} text-5xl sm:text-6xl font-black opacity-90 pointer-events-none drop-shadow-md">
+                        ${centerSymbol}
+                    </div>
+
+                    <div class="absolute bottom-1.5 right-2 flex flex-col items-end leading-none ${card.suitColor} rotate-180 z-10 pointer-events-none">
+                        <span class="text-[10px] sm:text-[11px] font-mono font-black tracking-tighter">${cornerLabel}</span>
+                        <span class="text-[12px] sm:text-[14px] font-bold leading-none mt-0.5">${card.suitSymbol}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateUI() {
+            const userHandContainer = document.getElementById('user-hand');
+            if (userHandContainer) {
+                userHandContainer.innerHTML = gameState.userHand
+                    .map((card, idx) => renderCardHTML(card, false, `window.playCard(${idx})`))
+                    .join('');
+            }
+
+            const viraContainer = document.getElementById('vira-card-container');
+            if (viraContainer) {
+                viraContainer.innerHTML = gameState.viraCard ? renderCardHTML(gameState.viraCard) : '';
+            }
+
+            const uPlayed = document.getElementById('user-played-slot');
+            if (uPlayed) uPlayed.innerHTML = gameState.userPlayed ? renderCardHTML(gameState.userPlayed) : '';
+
+            const bPlayed = document.getElementById('bot-played-slot');
+            if (bPlayed) bPlayed.innerHTML = gameState.oppPlayed ? renderCardHTML(gameState.oppPlayed) : '';
+
+            document.getElementById('user-score').innerText = gameState.userScore;
+            document.getElementById('opp-score').innerText = gameState.oppScore;
+            document.getElementById('truco-value').innerText = gameState.trucoValue;
+        }
+
+        window.startBotGame = function() {
+            isOnlineMode = false;
+            document.getElementById('game-mode-badge').innerText = 'Modo: Vs BOT';
+            document.getElementById('room-code-display').classList.add('hidden');
+            document.getElementById('user-name-label').innerText = 'Você';
+            document.getElementById('opp-name-label').innerText = 'BOT';
+
+            const deck = generateDeck();
+            gameState = {
+                userHand: [deck[0], deck[1], deck[2]],
+                oppHand: [deck[3], deck[4], deck[5]],
+                viraCard: deck[6],
+                userPlayed: null,
+                oppPlayed: null,
+                userScore: 0,
+                oppScore: 0,
+                trucoValue: 1,
+                currentTurn: 'user',
+                roundWins: { user: 0, opp: 0 }
+            };
+
+            document.getElementById('status-banner').innerText = 'Sua vez de jogar!';
+            updateUI();
+        };
+
+        window.playCard = function(cardIndex) {
+            if (gameState.currentTurn !== 'user') return;
+            if (!gameState.userHand[cardIndex]) return;
+
+            const card = gameState.userHand.splice(cardIndex, 1)[0];
+            gameState.userPlayed = card;
+            updateUI();
+
+            if (!isOnlineMode) {
+                if (!gameState.oppPlayed) {
+                    gameState.currentTurn = 'opp';
+                    document.getElementById('status-banner').innerText = 'O BOT está pensando...';
+                    setTimeout(() => {
+                        const botCardIndex = Math.floor(Math.random() * gameState.oppHand.length);
+                        gameState.oppPlayed = gameState.oppHand.splice(botCardIndex, 1)[0];
+                        evaluateRoundWinner();
+                    }, 800);
+                } else {
+                    evaluateRoundWinner();
+                }
+            }
+        };
+
+        function evaluateRoundWinner() {
+            const userPower = getCardStrength(gameState.userPlayed, gameState.viraCard);
+            const oppPower = getCardStrength(gameState.oppPlayed, gameState.viraCard);
+
+            let resultText = '';
+            if (userPower > oppPower) {
+                gameState.roundWins.user++;
+                resultText = 'Você venceu a rodada!';
+                gameState.currentTurn = 'user';
+            } else if (oppPower > userPower) {
+                gameState.roundWins.opp++;
+                resultText = 'Oponente venceu a rodada!';
+                gameState.currentTurn = 'opp';
+            } else {
+                resultText = 'Rodada Empatada!';
+            }
+
+            document.getElementById('status-banner').innerText = resultText;
+            updateUI();
+
+            setTimeout(() => {
+                gameState.userPlayed = null;
+                gameState.oppPlayed = null;
+
+                if (gameState.roundWins.user >= 2) {
+                    gameState.userScore += gameState.trucoValue;
+                    resetRound('Você ganhou a mão!');
+                } else if (gameState.roundWins.opp >= 2) {
+                    gameState.oppScore += gameState.trucoValue;
+                    resetRound('Oponente ganhou a mão!');
+                } else {
+                    updateUI();
+                }
+            }, 1500);
+        }
+
+        function resetRound(message) {
+            document.getElementById('status-banner').innerText = message;
+            const deck = generateDeck();
+            gameState.userHand = [deck[0], deck[1], deck[2]];
+            gameState.oppHand = [deck[3], deck[4], deck[5]];
+            gameState.viraCard = deck[6];
+            gameState.userPlayed = null;
+            gameState.oppPlayed = null;
+            gameState.trucoValue = 1;
+            gameState.roundWins = { user: 0, opp: 0 };
+            gameState.currentTurn = 'user';
+
+            setTimeout(() => {
+                updateUI();
+            }, 1000);
+        }
+
+        window.handleTrucoClick = function() {
+            const modal = document.getElementById('truco-respond-modal');
+            if (modal) modal.classList.remove('hidden');
+        };
+
+        window.respondTruco = function(action) {
+            const modal = document.getElementById('truco-respond-modal');
+            if (modal) modal.classList.add('hidden');
+            if (action === 'accept') {
+                gameState.trucoValue += 2;
+                document.getElementById('status-banner').innerText = `Truco Aceito! Mão valendo ${gameState.trucoValue} pontos!`;
+            } else {
+                gameState.oppScore += gameState.trucoValue;
+                resetRound('Você correu do Truco!');
+            }
+            updateUI();
+        };
+
+        window.copyRoomLink = function(e) {
+            if (e) e.preventDefault();
+            const text = window.location.href;
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            alert('Link da sala copiado com sucesso!');
+        };
+
+        window.pasteRoomCode = function() {
+            navigator.clipboard.readText().then(text => {
+                const input = document.getElementById('room-code-input');
+                if (input) input.value = text.trim();
+            }).catch(() => {
+                alert('Cole o código manualmente na caixa de texto.');
+            });
+        };
+
+        window.createOnlineRoom = function() {
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            onlineRoomId = code;
+            document.getElementById('current-room-code').innerText = code;
+            document.getElementById('room-code-display').classList.remove('hidden');
+            document.getElementById('multiplayer-modal').classList.add('hidden');
+            document.getElementById('status-banner').innerText = `Sala ${code} criada! Envie o código para seu amigo.`;
+            window.startBotGame();
+        };
+
+        window.joinOnlineRoom = function() {
+            const input = document.getElementById('room-code-input');
+            const code = input ? input.value.trim().toUpperCase() : '';
+            if (!code) return alert('Digite o código da sala!');
+            
+            document.getElementById('current-room-code').innerText = code;
+            document.getElementById('room-code-display').classList.remove('hidden');
+            document.getElementById('multiplayer-modal').classList.add('hidden');
+            document.getElementById('status-banner').innerText = `Entrou na sala ${code}!`;
+            window.startBotGame();
+        };
+
+        // Inicialização automática
+        document.addEventListener('DOMContentLoaded', () => {
+            window.startBotGame();
+        });
+    </script>
+</body>
+</html>
